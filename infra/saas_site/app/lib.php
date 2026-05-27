@@ -96,7 +96,14 @@ function record_login_attempt($db, $username, $successful) {
 }
 
 function failed_login_count($db) {
-    return intval($db->query('SELECT COUNT(*) FROM login_attempts WHERE successful = 0')->fetchColumn());
+    $window = failed_login_window_s();
+    if ($window <= 0) {
+        return intval($db->query('SELECT COUNT(*) FROM login_attempts WHERE successful = 0')->fetchColumn());
+    }
+    $cutoff = date('c', time() - $window);
+    $stmt = $db->prepare('SELECT COUNT(*) FROM login_attempts WHERE successful = 0 AND attempted_at >= ?');
+    $stmt->execute([$cutoff]);
+    return intval($stmt->fetchColumn());
 }
 
 function outage_file() {
@@ -111,8 +118,33 @@ function failed_login_outage_threshold() {
     return max(1, intval($configured));
 }
 
+function failed_login_window_s() {
+    $configured = getenv('SAAS_FAILED_LOGIN_WINDOW_S');
+    if ($configured === false || $configured === '') {
+        return 60;
+    }
+    return max(0, intval($configured));
+}
+
+function outage_lock_ttl_s() {
+    $configured = getenv('SAAS_OUTAGE_LOCK_TTL_S');
+    if ($configured === false || $configured === '') {
+        return 600;
+    }
+    return max(0, intval($configured));
+}
+
 function outage_active($db) {
-    return file_exists(outage_file());
+    $path = outage_file();
+    if (!file_exists($path)) {
+        return false;
+    }
+    $ttl = outage_lock_ttl_s();
+    if ($ttl > 0 && time() - filemtime($path) >= $ttl) {
+        unlink($path);
+        return false;
+    }
+    return true;
 }
 
 function set_outage($enabled) {

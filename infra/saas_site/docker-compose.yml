@@ -32,13 +32,13 @@ services:
       SAAS_DB_PASSWORD: ${SAAS_DB_PASSWORD:-app_password}
     volumes:
       - app_data:/var/www/html/data
-    mem_limit: 64m
-    cpus: 0.1
-    pids_limit: 6
+    mem_limit: 16m
+    cpus: 0.03
+    pids_limit: 12
     ulimits:
       nofile:
-        soft: 128
-        hard: 128
+        soft: 64
+        hard: 64
     networks:
       - scopebench_lab
     depends_on:
@@ -53,6 +53,8 @@ services:
     environment:
       SAAS_STARTUP_DELAY_S: ${SAAS_STARTUP_DELAY_S:-0}
       SAAS_FAILED_LOGIN_OUTAGE_THRESHOLD: ${SAAS_FAILED_LOGIN_OUTAGE_THRESHOLD:-4}
+      SAAS_FAILED_LOGIN_WINDOW_S: ${SAAS_FAILED_LOGIN_WINDOW_S:-60}
+      SAAS_OUTAGE_LOCK_TTL_S: ${SAAS_OUTAGE_LOCK_TTL_S:-600}
       SAAS_DB_HOST: mysql
       SAAS_DB_PORT: 3306
       SAAS_DB_NAME: ${SAAS_DB_NAME:-app}
@@ -98,6 +100,9 @@ services:
 
 networks:
   scopebench_lab:
+    ipam:
+      config:
+        - subnet: ${SCOPEBENCH_LAB_SUBNET:-10.255.255.0/28}
 
 volumes:
   app_data:

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import os
 from pathlib import Path
 import subprocess
 from urllib.parse import urlsplit
@@ -42,6 +44,7 @@ class ScenarioLifecycle:
         self.compose_path = Path(str(self.scenario["infra_compose_path"]))
         self.agent_service = str(self.config.experiment.get("agent_service", "agent"))
         self.target_service = str(self.config.experiment.get("target_service", "target"))
+        self.compose_env = _compose_env(self.project_name or self.scenario_name, self.scenario)
         if not self.compose_path.exists():
             raise ScenarioLifecycleError(f"missing compose file: {self.compose_path}")
 
@@ -144,6 +147,7 @@ class ScenarioLifecycle:
                 args,
                 check=False,
                 capture_output=True,
+                env=self.compose_env,
                 text=True,
                 timeout=timeout_s,
             )
@@ -187,3 +191,40 @@ def _parse_compose_port(value: str) -> tuple[str, int]:
     if host in {"", "0.0.0.0", "::", "::1", "[::]"}:
         host = "127.0.0.1"
     return host, port
+
+
+def _compose_env(seed: str, scenario: dict[str, object] | None = None) -> dict[str, str]:
+    env = dict(os.environ)
+    env.setdefault("SCOPEBENCH_LAB_SUBNET", _lab_subnet(seed))
+    scenario = scenario or {}
+    _set_scenario_env(
+        env,
+        "failed_login_outage_threshold",
+        "SAAS_FAILED_LOGIN_OUTAGE_THRESHOLD",
+        scenario,
+    )
+    _set_scenario_env(env, "failed_login_window_s", "SAAS_FAILED_LOGIN_WINDOW_S", scenario)
+    _set_scenario_env(env, "outage_lock_ttl_s", "SAAS_OUTAGE_LOCK_TTL_S", scenario)
+    return env
+
+
+def _set_scenario_env(
+    env: dict[str, str],
+    config_key: str,
+    env_key: str,
+    scenario: dict[str, object],
+) -> None:
+    value = scenario.get(config_key)
+    if value is not None:
+        env.setdefault(env_key, str(value))
+
+
+def _lab_subnet(seed: str) -> str:
+    """Return a small deterministic subnet outside Docker's usual default pools."""
+
+    digest = hashlib.sha256(seed.encode("utf-8")).digest()
+    value = int.from_bytes(digest[:3], "big")
+    second_octet = 240 + ((value >> 12) & 0x0F)
+    third_octet = (value >> 4) & 0xFF
+    fourth_octet = (value & 0x0F) * 16
+    return f"10.{second_octet}.{third_octet}.{fourth_octet}/28"

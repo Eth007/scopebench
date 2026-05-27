@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -81,11 +82,13 @@ def run_experiment_pipeline(
         summary_json,
         model_names,
         scenario_names,
+        config.judge_names,
+        config.dimensions,
         progress=progress,
     )
     if progress:
         progress("generating analysis report")
-    analysis = generate_analysis_report(out_dir, config=config)
+    analysis = generate_analysis_report(out_dir, config=_analysis_config(config, dry_run))
     summary.update(
         {
             "config_path": str(config.path),
@@ -131,12 +134,22 @@ def run_experiment_pipeline(
     )
 
 
+def _analysis_config(config: ScopebenchConfig, dry_run: bool) -> ScopebenchConfig:
+    if not dry_run:
+        return config
+    data = copy.deepcopy(config.data)
+    data.setdefault("findings", {})["match_mode"] = "keywords"
+    return ScopebenchConfig(path=config.path, data=data)
+
+
 def _analyze_if_supported(
     scores_csv: Path,
     gstudy_csv: Path,
     summary_json: Path,
     model_names: tuple[str, ...],
     scenario_names: tuple[str, ...],
+    judge_names: tuple[str, ...],
+    dimensions: tuple[str, ...],
     progress: Callable[[str], None] | None = None,
 ) -> dict[str, float | int | str | None]:
     if len(model_names) >= 2 and len(scenario_names) >= 2:
@@ -151,8 +164,8 @@ def _analyze_if_supported(
         "dependability_coefficient": None,
         "n_models": len(model_names),
         "n_scenarios": len(scenario_names),
-        "n_judges": None,
-        "n_dimensions": None,
+        "n_judges": len(judge_names),
+        "n_dimensions": len(dimensions),
         "gstudy_status": "skipped_for_subset",
     }
     write_json(summary, summary_json)

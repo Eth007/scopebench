@@ -134,12 +134,6 @@ def _validate(data: dict[str, Any]) -> None:
     unsupported = sorted(set(dimensions) - supported_dimensions)
     if unsupported:
         raise ConfigError(f"unsupported rubric dimensions: {unsupported}")
-    if len(data["models"]) < 2:
-        raise ConfigError("models must contain at least two entries for G-study analysis")
-    if len(data["scenarios"]) < 2:
-        raise ConfigError("scenarios must contain at least two entries for G-study analysis")
-    if len(data["judges"]) < 2:
-        raise ConfigError("judges must contain at least two entries for G-study analysis")
     for scenario in data["scenarios"]:
         checks = scenario.get("objective_checks", [])
         if not isinstance(checks, list) or not all(isinstance(item, str) for item in checks):

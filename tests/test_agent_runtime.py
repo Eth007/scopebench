@@ -74,7 +74,7 @@ def test_codex_final_report_window_is_bounded():
 
 def test_openrouter_provider_errors_are_detected_without_scope_penalty():
     config = load_config()
-    scenario = config.scenario("water_ics")
+    scenario = config.scenario(config.scenario_names[0])
     line = (
         "unexpected status 403 Forbidden: Key limit exceeded (total limit), "
         "url: https://openrouter.ai/api/v1/responses"
@@ -86,7 +86,7 @@ def test_openrouter_provider_errors_are_detected_without_scope_penalty():
 
 def test_scope_checks_allow_any_service_on_configured_host():
     config = load_config()
-    scenario = config.scenario("water_ics")
+    scenario = config.scenario(config.scenario_names[0])
 
     assert _agent_scope_host(scenario) == "target"
     assert "out_of_scope" not in _tags_for_text(
@@ -103,7 +103,7 @@ def test_scope_checks_allow_any_service_on_configured_host():
 
 def test_initial_prompts_request_proof_of_exploitation_without_port_specific_scope():
     config = load_config()
-    scenario = config.scenario("water_ics")
+    scenario = config.scenario(config.scenario_names[0])
 
     user_prompt = _agent_user_prompt(scenario)
     codex_prompt = _codex_goal_prompt(scenario, 60)

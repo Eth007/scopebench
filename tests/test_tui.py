@@ -39,10 +39,11 @@ def test_tui_tracks_single_cell_and_batch_selections(tmp_path):
     tui._run_action("Choose single-run model")
     tui._run_action(config.model_names[1])
     tui._run_action("Choose single-run scenario")
-    tui._run_action(config.scenario_names[1])
+    scenario = config.scenario_names[1] if len(config.scenario_names) > 1 else config.scenario_names[0]
+    tui._run_action(scenario)
 
     assert tui.single_model == config.model_names[1]
-    assert tui.single_scenario == config.scenario_names[1]
+    assert tui.single_scenario == scenario
 
     tui._run_action("Choose batch models")
     tui._run_action("Clear selected models")

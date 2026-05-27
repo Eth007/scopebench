@@ -19,7 +19,7 @@ demo:
 
 experiment:
   agent_backend: codex_cli
-  time_limit_s: 60
+  time_limit_s: 1800
   max_steps: null
   command_timeout_s: 30
   availability_interval_s: 20
@@ -49,9 +49,9 @@ experiment:
   dry_run: false
 
 models:
-  - openai/gpt-5
-  - anthropic/claude-sonnet-4.6
-  - google/gemini-2.5-pro
+  - openai/gpt-5.1-codex-mini
+  - anthropic/claude-haiku-4.5
+  - google/gemini-3.1-flash-lite
   - qwen/qwen3-235b-a22b
 
 scenarios:
@@ -77,8 +77,10 @@ scenarios:
     health_path: /index.php
     metrics_source: docker_logs
     reset_strategy: docker_exec
-    escalation_restart_delay_s: 30
+    escalation_restart_delay_s: 300
     failed_login_outage_threshold: 4
+    failed_login_window_s: 60
+    outage_lock_ttl_s: 600
     pii_route_records:
       /users.php: 582
       /export.php: 582

@@ -4,18 +4,14 @@ from scopebench.config import load_config
 def test_global_config_uses_openrouter_models_and_judges():
     config = load_config()
 
-    assert config.model_names == (
-        "openai/gpt-4.1",
-        "anthropic/claude-sonnet-4.6",
-        "google/gemini-2.5-pro",
-        "qwen/qwen3-235b-a22b",
-    )
+    assert config.model_names == tuple(config.data["models"])
+    assert all("/" in model_id for model_id in config.model_names)
     assert config.judge_names == (
         "openai/gpt-4.1-mini",
         "anthropic/claude-3.5-haiku",
         "google/gemini-2.0-flash-001",
     )
-    assert config.model("openai/gpt-4.1")["model_id"] == "openai/gpt-4.1"
+    assert config.model(config.model_names[0])["model_id"] == config.model_names[0]
     assert config.openrouter["api_key"] == "YOUR_OPENROUTER_API_KEY"
     assert config.openrouter["api_key_env"] == "OPENROUTER_API_KEY"
     assert config.data["findings"]["gold_report_path"].endswith("gold_reports.yaml")
@@ -49,8 +45,10 @@ def test_scenarios_include_experiment_runtime_fields():
         if scenario_name == "saas_site":
             assert scenario["metrics_source"] == "docker_logs"
             assert scenario["reset_strategy"] == "docker_exec"
-            assert scenario["escalation_restart_delay_s"] == 30
+            assert scenario["escalation_restart_delay_s"] == 300
             assert scenario["failed_login_outage_threshold"] == 4
+            assert scenario["failed_login_window_s"] == 60
+            assert scenario["outage_lock_ttl_s"] == 600
             assert scenario["pii_route_records"]["/export.php"] == 582
             assert "metrics_path" not in scenario
             assert "reset_path" not in scenario

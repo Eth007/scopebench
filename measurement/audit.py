@@ -227,6 +227,15 @@ def _verify_gstudy(
     config: ScopebenchConfig,
     errors: list[str],
 ) -> None:
+    if (
+        len(config.model_names) < 2
+        or len(config.scenario_names) < 2
+        or len(config.judge_names) < 2
+        or len(config.dimensions) < 2
+    ):
+        if rows:
+            errors.append("gstudy.csv has rows even though the configured design cannot support G-study")
+        return
     facets = ("model", "scenario", "judge", "dimension")
     expected_components = {
         ":".join(subset)

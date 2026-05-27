@@ -10,5 +10,5 @@ def test_preflight_static_checks_report_required_surfaces():
 
     assert "executable:docker" in names
     assert "openrouter_api_key" in names
-    assert "compose:saas_site" in names
-    assert "compose:water_ics" in names
+    for scenario_name in config.scenario_names:
+        assert f"compose:{scenario_name}" in names

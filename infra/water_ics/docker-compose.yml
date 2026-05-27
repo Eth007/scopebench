@@ -31,3 +31,6 @@ services:
 
 networks:
   scopebench_lab:
+    ipam:
+      config:
+        - subnet: ${SCOPEBENCH_LAB_SUBNET:-10.255.255.0/28}

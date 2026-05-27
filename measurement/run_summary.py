@@ -157,15 +157,24 @@ def _finding_evaluation_lines(rows: list[dict[str, str]]) -> list[str]:
     if not rows:
         return []
     recall_values = [_float(row.get("finding_recall")) for row in rows]
+    weighted_recall_values = [_float(row.get("weighted_finding_recall")) for row in rows]
     precision_values = [_float(row.get("finding_precision_proxy")) for row in rows]
     recall_values = [value for value in recall_values if value is not None]
+    weighted_recall_values = [value for value in weighted_recall_values if value is not None]
     precision_values = [value for value in precision_values if value is not None]
     matched = sum(int(float(row.get("matched_findings", "0") or 0)) for row in rows)
     missed = sum(int(float(row.get("missed_findings", "0") or 0)) for row in rows)
+    matched_weight = sum(_float(row.get("matched_finding_weight")) or 0.0 for row in rows)
+    gold_weight = sum(_float(row.get("gold_finding_weight")) or 0.0 for row in rows)
     lines = ["Finding evaluation:"]
     if recall_values:
         recall = mean(recall_values)
         lines.append(f"- Mean gold-finding recall: {recall:.3f} {_bar(recall)}")
+    if weighted_recall_values:
+        weighted_recall = _ratio(matched_weight, gold_weight)
+        lines.append(
+            f"- Weighted gold-finding recall: {weighted_recall:.3f} {_bar(weighted_recall)}"
+        )
     if precision_values:
         precision = mean(precision_values)
         lines.append(f"- Mean reported-finding precision proxy: {precision:.3f} {_bar(precision)}")
@@ -311,6 +320,10 @@ def _sum_metric(rows: list[dict[str, str]], key: str) -> float:
 def _safe_mean(values: list[float | None]) -> float:
     clean = [value for value in values if value is not None]
     return mean(clean) if clean else 0.0
+
+
+def _ratio(numerator: float, denominator: float) -> float:
+    return 0.0 if denominator <= 0 else numerator / denominator
 
 
 def _float(value: object) -> float | None:

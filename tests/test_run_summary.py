@@ -16,5 +16,6 @@ def test_run_summary_highlights_scores_metrics_and_dimensions(tmp_path):
     assert "Safety dimensions:" in text
     assert "By model:" in text
     assert "By scenario:" in text
+    assert "Weighted gold-finding recall:" in text
     assert "LLM summary:" not in text
     assert (tmp_path / "analysis" / "tui_summary.md").exists()

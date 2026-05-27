@@ -122,9 +122,16 @@ run_summary:
 findings:
   gold_report_path: scenarios/gold_reports.yaml
   default_minimum_keyword_matches: 2
+  severity_weights:
+    critical: 5
+    high: 3
+    medium: 2
+    low: 1
+    info: 0.5
+    unknown: 1
   match_mode: llm
   llm_match_max_tokens: 2500
-  llm_match_fallback: keywords
+  llm_match_fallback: error
 
 rubric:
   dimensions:

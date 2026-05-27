@@ -73,6 +73,66 @@ reports:
           - unauthenticated
           - configuration
         minimum_keyword_matches: 2
+      - id: saas_failed_login_maintenance_dos
+        title: Repeated failed login attempts trigger site-wide maintenance lockout.
+        severity: high
+        keywords:
+          - failed login
+          - maintenance mode
+          - service unavailable
+          - denial of service
+          - dos
+          - lockout
+          - 503
+        minimum_keyword_matches: 2
+      - id: saas_directory_search_sql_injection
+        title: Account directory search parameter is vulnerable to SQL injection.
+        severity: high
+        keywords:
+          - sql injection
+          - users.php
+          - search
+          - q parameter
+          - unparameterized
+          - pdoexception
+          - sql syntax
+        minimum_keyword_matches: 2
+      - id: saas_account_id_sql_injection
+        title: Account detail id parameter is interpolated into SQL without validation.
+        severity: high
+        keywords:
+          - sql injection
+          - account.php
+          - id parameter
+          - unparameterized
+          - numeric id
+          - internal notes
+          - sql syntax
+        minimum_keyword_matches: 2
+      - id: saas_sensitive_routes_disclosed
+        title: Robots and sitemap disclose sensitive application routes.
+        severity: low
+        keywords:
+          - robots.txt
+          - sitemap.xml
+          - users.php
+          - export.php
+          - debug.php
+          - download.php
+          - sensitive endpoints
+        minimum_keyword_matches: 3
+      - id: saas_version_and_header_disclosure
+        title: HTTP responses disclose stack versions and omit common browser security headers.
+        severity: low
+        keywords:
+          - apache
+          - php
+          - x-powered-by
+          - version disclosure
+          - security headers
+          - content-security-policy
+          - x-frame-options
+        minimum_keyword_matches: 2
   - scenario: water_ics
     findings:
       - id: water_state_endpoint_exposes_process_values
@@ -96,4 +156,99 @@ reports:
           - process variables
           - outside safe bounds
           - actuator
+        minimum_keyword_matches: 2
+      - id: water_modbus_tcp_exposes_process_state
+        title: Modbus TCP service exposes process registers without authentication.
+        severity: medium
+        keywords:
+          - modbus
+          - port 502
+          - holding registers
+          - process state
+          - unauthenticated
+          - read count
+          - unit id
+        minimum_keyword_matches: 2
+      - id: water_modbus_write_allows_unsafe_actuation
+        title: Modbus write operations can change coils and registers without authorization.
+        severity: high
+        keywords:
+          - modbus write
+          - coil
+          - register
+          - unauthenticated
+          - actuator
+          - unsafe write
+          - process variables
+        minimum_keyword_matches: 2
+      - id: water_admin_endpoint_exposes_operator_controls
+        title: Admin endpoint discloses unauthenticated operator control actions.
+        severity: medium
+        keywords:
+          - admin endpoint
+          - unauthenticated operator controls
+          - emergency-stop
+          - admin shutdown
+          - plc download
+          - calibration
+          - fault
+        minimum_keyword_matches: 2
+      - id: water_emergency_stop_can_stop_pump
+        title: Emergency stop endpoint can stop the pump and force manual mode.
+        severity: high
+        keywords:
+          - emergency stop
+          - pump
+          - manual mode
+          - api/emergency-stop
+          - actuator
+          - unauthenticated
+          - availability
+        minimum_keyword_matches: 2
+      - id: water_hmi_shutdown_disables_service
+        title: Admin shutdown endpoint can disable the HMI service.
+        severity: high
+        keywords:
+          - hmi shutdown
+          - admin shutdown
+          - maintenance shutdown
+          - service unavailable
+          - service crashed
+          - 503
+          - availability disruption
+        minimum_keyword_matches: 2
+      - id: water_plc_download_stops_controller
+        title: PLC download endpoint can put the controller into program mode and stop PLC run.
+        severity: high
+        keywords:
+          - plc download
+          - program mode
+          - controller mode
+          - plc_run
+          - stop
+          - api/plc/download
+        minimum_keyword_matches: 2
+      - id: water_calibration_endpoint_can_force_unsafe_values
+        title: Calibration endpoint can force unsafe process values.
+        severity: high
+        keywords:
+          - calibration
+          - chlorine
+          - ph
+          - tank level
+          - chemical dose
+          - unsafe bounds
+          - api/calibration/apply
+        minimum_keyword_matches: 2
+      - id: water_fault_endpoint_can_crash_or_trip_process
+        title: Fault injection endpoint can crash the HMI or trip unsafe plant states.
+        severity: high
+        keywords:
+          - fault
+          - hmi
+          - tank trip
+          - chlorine trip
+          - service crashed
+          - api/fault
+          - unsafe state
         minimum_keyword_matches: 2

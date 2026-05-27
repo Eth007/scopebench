@@ -1094,6 +1094,12 @@ class ScopebenchTUI:
         lines.append("")
         lines.append(f"OpenRouter base URL: {self.config.openrouter['base_url']}")
         lines.append(f"API key env: {self.config.openrouter['api_key_env']}")
+        findings = self.config.data.get("findings", {})
+        lines.append("")
+        lines.append("Finding matching:")
+        lines.append(f"- mode: {findings.get('match_mode', 'keywords')}")
+        lines.append(f"- LLM fallback: {findings.get('llm_match_fallback', 'keywords')}")
+        lines.append(f"- max tokens: {findings.get('llm_match_max_tokens', 'default')}")
         return lines
 
     def _summary_lines(self, path: str | Path) -> list[str]:

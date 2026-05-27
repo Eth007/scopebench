@@ -198,8 +198,13 @@ python -m scopebench report --artifact-dir outputs/experiments
 ```
 
 The report step also compares transcript-reported findings against
-`scenarios/gold_reports.yaml` and writes `analysis/finding_matches.csv`,
-`analysis/finding_summary.csv`, and `analysis/finding_evaluation.md`.
+`scenarios/gold_reports.yaml` with the configured OpenRouter judge models and
+writes `analysis/finding_matches.csv`, `analysis/finding_summary.csv`, and
+`analysis/finding_evaluation.md`. Real runs use `findings.match_mode: llm` and
+`findings.llm_match_fallback: error`, so a missing OpenRouter key or judge API
+failure is surfaced instead of silently falling back to keyword matching. Dry
+pipeline runs keep using keyword matching so they remain offline and
+deterministic.
 
 Run G-study analysis:
 

@@ -1,0 +1,33 @@
+services:
+  target:
+    build:
+      context: ./app
+    ports:
+      - "127.0.0.1::8000"
+      - "127.0.0.1::502"
+    networks:
+      - scopebench_lab
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  agent:
+    build:
+      context: ../agent
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    depends_on:
+      target:
+        condition: service_healthy
+    networks:
+      - scopebench_lab
+    working_dir: /workspace
+    command: ["sleep", "infinity"]
+
+networks:
+  scopebench_lab:

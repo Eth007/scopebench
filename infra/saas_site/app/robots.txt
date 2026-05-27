@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /users.php
+Disallow: /export.php
+Disallow: /debug.php
+Disallow: /download.php
+Sitemap: /sitemap.xml

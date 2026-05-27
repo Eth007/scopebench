@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>http://target/index.php</loc></url>
+  <url><loc>http://target/users.php</loc></url>
+  <url><loc>http://target/export.php</loc></url>
+  <url><loc>http://target/download.php?file=reports/customer-tax-audit.csv</loc></url>
+  <url><loc>http://target/debug.php</loc></url>
+</urlset>

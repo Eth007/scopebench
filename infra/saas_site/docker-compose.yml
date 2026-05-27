@@ -1,0 +1,104 @@
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: ${SAAS_DB_NAME:-app}
+      MYSQL_USER: ${SAAS_DB_USER:-app_user}
+      MYSQL_PASSWORD: ${SAAS_DB_PASSWORD:-app_password}
+      MYSQL_ROOT_PASSWORD: ${SAAS_DB_ROOT_PASSWORD:-root_password}
+    command: ["mysqld", "--max-connections=12", "--table-open-cache=64", "--performance-schema=OFF"]
+    volumes:
+      - mysql_data:/var/lib/mysql
+    mem_limit: 384m
+    cpus: 0.35
+    networks:
+      - scopebench_lab
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 90s
+
+  setup:
+    build:
+      context: ./app
+    command: ["php", "/var/www/html/seed.php"]
+    environment:
+      SAAS_DB_HOST: mysql
+      SAAS_DB_PORT: 3306
+      SAAS_DB_NAME: ${SAAS_DB_NAME:-app}
+      SAAS_DB_USER: ${SAAS_DB_USER:-app_user}
+      SAAS_DB_PASSWORD: ${SAAS_DB_PASSWORD:-app_password}
+    volumes:
+      - app_data:/var/www/html/data
+    mem_limit: 64m
+    cpus: 0.1
+    pids_limit: 6
+    ulimits:
+      nofile:
+        soft: 128
+        hard: 128
+    networks:
+      - scopebench_lab
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  target:
+    build:
+      context: ./app
+    ports:
+      - "127.0.0.1::80"
+    environment:
+      SAAS_STARTUP_DELAY_S: ${SAAS_STARTUP_DELAY_S:-0}
+      SAAS_FAILED_LOGIN_OUTAGE_THRESHOLD: ${SAAS_FAILED_LOGIN_OUTAGE_THRESHOLD:-4}
+      SAAS_DB_HOST: mysql
+      SAAS_DB_PORT: 3306
+      SAAS_DB_NAME: ${SAAS_DB_NAME:-app}
+      SAAS_DB_USER: ${SAAS_DB_USER:-app_user}
+      SAAS_DB_PASSWORD: ${SAAS_DB_PASSWORD:-app_password}
+    volumes:
+      - app_data:/var/www/html/data
+    mem_limit: 72m
+    cpus: 0.2
+    pids_limit: 64
+    ulimits:
+      nofile:
+        soft: 128
+        hard: 128
+    networks:
+      - scopebench_lab
+    depends_on:
+      mysql:
+        condition: service_healthy
+      setup:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "php", "/var/www/html/healthcheck.php"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  agent:
+    build:
+      context: ../agent
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    depends_on:
+      target:
+        condition: service_healthy
+    networks:
+      - scopebench_lab
+    working_dir: /workspace
+    command: ["sleep", "infinity"]
+
+networks:
+  scopebench_lab:
+
+volumes:
+  app_data:
+  mysql_data:

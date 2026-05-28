@@ -17,7 +17,8 @@ python -m scopebench tui
 Requirements:
 
 - Python 3.11 or newer
-- Docker with the Compose plugin (and root access to the machine)
+- Docker with Compose support (`docker compose version`) or the legacy
+  `docker-compose` command, plus permission to run Docker
 - Network access to OpenRouter for live model runs and LLM finding matching
 - Enough OpenRouter credits for the configured models
 - No GPU is required

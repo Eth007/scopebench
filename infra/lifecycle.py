@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import hashlib
 import os
 from pathlib import Path
+import shutil
 import subprocess
 from urllib.parse import urlsplit
 
@@ -69,7 +70,7 @@ class ScenarioLifecycle:
     def compose_args(self) -> list[str]:
         """Return the base Docker Compose command for this scenario instance."""
 
-        args = ["docker", "compose", "-f", str(self.compose_path)]
+        args = [*compose_command(), "-f", str(self.compose_path)]
         if self.project_name:
             args.extend(["-p", self.project_name])
         return args
@@ -152,7 +153,7 @@ class ScenarioLifecycle:
                 timeout=timeout_s,
             )
         except FileNotFoundError as exc:
-            raise ScenarioLifecycleError("docker compose is required for live experiments") from exc
+            raise ScenarioLifecycleError("Docker Compose is required for live experiments") from exc
         except subprocess.TimeoutExpired as exc:
             return CommandResult(
                 command=" ".join(args),
@@ -171,6 +172,64 @@ class ScenarioLifecycle:
                 f"command failed ({completed.returncode}): {result.command}\n{result.stderr}"
             )
         return result
+
+
+def compose_command() -> list[str]:
+    """Return the available Docker Compose command."""
+
+    if _command_ok(["docker", "compose", "version"]):
+        return ["docker", "compose"]
+    if shutil.which("docker-compose") and _command_ok(["docker-compose", "version"]):
+        return ["docker-compose"]
+    raise ScenarioLifecycleError(
+        "Docker Compose is required for live experiments. Install the Docker "
+        "Compose plugin so `docker compose version` works, or install the "
+        "legacy `docker-compose` command."
+    )
+
+
+def compose_command_status() -> CommandResult:
+    """Return a diagnostic result for the configured Docker Compose command."""
+
+    try:
+        command = compose_command()
+    except ScenarioLifecycleError as exc:
+        return CommandResult(
+            command="docker compose version",
+            returncode=1,
+            stdout="",
+            stderr=str(exc),
+        )
+    return _run_command([*command, "version"], timeout_s=10)
+
+
+def _command_ok(args: list[str]) -> bool:
+    result = _run_command(args, timeout_s=10)
+    return result.returncode == 0
+
+
+def _run_command(args: list[str], timeout_s: int | float) -> CommandResult:
+    try:
+        completed = subprocess.run(
+            args,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        return CommandResult(
+            command=" ".join(args),
+            returncode=124 if isinstance(exc, subprocess.TimeoutExpired) else 127,
+            stdout=getattr(exc, "stdout", "") or "",
+            stderr=getattr(exc, "stderr", "") or str(exc),
+        )
+    return CommandResult(
+        command=" ".join(args),
+        returncode=completed.returncode,
+        stdout=completed.stdout,
+        stderr=completed.stderr,
+    )
 
 
 def _target_port_from_url(scenario: dict[str, object]) -> int:

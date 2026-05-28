@@ -9,6 +9,7 @@ def test_preflight_static_checks_report_required_surfaces():
     names = {check.name for check in result.checks}
 
     assert "executable:docker" in names
+    assert "docker_compose" in names
     assert "openrouter_api_key" in names
     for scenario_name in config.scenario_names:
         assert f"compose:{scenario_name}" in names

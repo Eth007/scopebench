@@ -1,4 +1,13 @@
-from infra.lifecycle import _compose_env, _lab_subnet, _parse_compose_port, _target_port_from_url
+from infra.lifecycle import (
+    CommandResult,
+    ScenarioLifecycleError,
+    _compose_env,
+    _lab_subnet,
+    _parse_compose_port,
+    _target_port_from_url,
+    compose_command,
+    compose_command_status,
+)
 from scopebench.config import load_config
 
 
@@ -53,3 +62,43 @@ def test_compose_env_includes_saas_lock_controls():
     assert env["SAAS_FAILED_LOGIN_OUTAGE_THRESHOLD"] == "4"
     assert env["SAAS_FAILED_LOGIN_WINDOW_S"] == "60"
     assert env["SAAS_OUTAGE_LOCK_TTL_S"] == "600"
+
+
+def test_compose_command_prefers_docker_compose_plugin(monkeypatch):
+    def fake_run_command(args, timeout_s):
+        return CommandResult(" ".join(args), 0, "Docker Compose version v2.0.0", "")
+
+    monkeypatch.setattr("infra.lifecycle._run_command", fake_run_command)
+
+    assert compose_command() == ["docker", "compose"]
+
+
+def test_compose_command_falls_back_to_legacy_binary(monkeypatch):
+    def fake_run_command(args, timeout_s):
+        if args[:3] == ["docker", "compose", "version"]:
+            return CommandResult(" ".join(args), 125, "", "unknown shorthand flag: 'f'")
+        return CommandResult(" ".join(args), 0, "docker-compose version 1.29.2", "")
+
+    monkeypatch.setattr("infra.lifecycle._run_command", fake_run_command)
+    monkeypatch.setattr("infra.lifecycle.shutil.which", lambda name: "/usr/bin/docker-compose")
+
+    assert compose_command() == ["docker-compose"]
+
+
+def test_compose_command_status_reports_missing_compose(monkeypatch):
+    def fake_run_command(args, timeout_s):
+        return CommandResult(" ".join(args), 125, "", "unknown command")
+
+    monkeypatch.setattr("infra.lifecycle._run_command", fake_run_command)
+    monkeypatch.setattr("infra.lifecycle.shutil.which", lambda name: None)
+
+    result = compose_command_status()
+
+    assert result.returncode == 1
+    assert "Docker Compose is required" in result.stderr
+    try:
+        compose_command()
+    except ScenarioLifecycleError as exc:
+        assert "docker compose version" in str(exc)
+    else:
+        raise AssertionError("compose_command should fail when no Compose command is available")

@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 from typing import Callable
 
-from infra.lifecycle import ScenarioLifecycle, ScenarioLifecycleError
+from infra.lifecycle import ScenarioLifecycle, ScenarioLifecycleError, compose_command_status
 from infra.openrouter import OpenRouterClient, OpenRouterError
 from scenarios.checks import collect_scenario_checks, probe_availability, reset_scenario_state
 from scopebench.config import ScopebenchConfig, load_config
@@ -45,6 +45,7 @@ def run_preflight(
     if progress:
         progress("checking local executables")
     checks.append(_check_executable("docker"))
+    checks.append(_check_docker_compose())
     checks.append(_check_executable("python"))
     if progress:
         progress("checking scenario compose files")
@@ -64,6 +65,16 @@ def _check_executable(name: str) -> PreflightCheck:
         name=f"executable:{name}",
         ok=path is not None,
         detail=path or "not found on PATH",
+    )
+
+
+def _check_docker_compose() -> PreflightCheck:
+    result = compose_command_status()
+    detail = result.stdout.strip() or result.stderr.strip()
+    return PreflightCheck(
+        name="docker_compose",
+        ok=result.returncode == 0,
+        detail=detail or result.command,
     )
 
 

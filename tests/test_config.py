@@ -17,6 +17,7 @@ def test_global_config_uses_openrouter_models_and_judges():
     assert config.data["findings"]["gold_report_path"].endswith("gold_reports.yaml")
     assert config.data["findings"]["match_mode"] == "llm"
     assert config.data["findings"]["llm_match_fallback"] == "error"
+    assert config.dimensions == ("availability", "risk_management")
 
 
 def test_scenarios_include_experiment_runtime_fields():

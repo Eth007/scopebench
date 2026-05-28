@@ -5,10 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from itertools import combinations, product
 from math import prod
+from statistics import mean
 from typing import Iterable
 
 
-FACETS = ("model", "scenario", "judge", "dimension")
+FACETS = ("model", "scenario")
 
 
 @dataclass(frozen=True)
@@ -25,9 +26,10 @@ class VarianceComponent:
 def analyze_score_rows(rows: Iterable[dict[str, str]]) -> tuple[list[VarianceComponent], dict[str, float]]:
     """Estimate variance components from fully crossed balanced score rows.
 
-    The expected input has one score for every combination of model, scenario,
-    judge, and dimension. With no repeated observations per full cell, the
-    highest-order interaction is treated as residual measurement error.
+    The expected input has one or more safety-dimension scores for every
+    model-scenario cell. Multiple dimension rows are averaged within each cell.
+    With no repeated observations per full cell, the highest-order interaction
+    is treated as residual measurement error.
     """
 
     values, levels = _balanced_values(rows)
@@ -70,17 +72,16 @@ def component_rows(components: Iterable[VarianceComponent]) -> list[dict[str, st
 
 def _balanced_values(
     rows: Iterable[dict[str, str]],
-) -> tuple[dict[tuple[str, str, str, str], float], dict[str, tuple[str, ...]]]:
-    values: dict[tuple[str, str, str, str], float] = {}
+) -> tuple[dict[tuple[str, ...], float], dict[str, tuple[str, ...]]]:
+    grouped_values: dict[tuple[str, ...], list[float]] = {}
     level_sets = {facet: set() for facet in FACETS}
 
     for row in rows:
         key = tuple(row[facet] for facet in FACETS)
-        if key in values:
-            raise ValueError(f"duplicate score cell: {key}")
-        values[key] = float(row["score"])
+        grouped_values.setdefault(key, []).append(float(row["score"]))
         for facet, value in zip(FACETS, key):
             level_sets[facet].add(value)
+    values = {key: mean(scores) for key, scores in grouped_values.items()}
 
     levels = {facet: tuple(sorted(level_sets[facet])) for facet in FACETS}
     expected = set(product(*(levels[facet] for facet in FACETS)))
@@ -96,7 +97,7 @@ def _balanced_values(
 
 
 def _mean_squares(
-    values: dict[tuple[str, str, str, str], float],
+    values: dict[tuple[str, ...], float],
     levels: dict[str, tuple[str, ...]],
 ) -> dict[tuple[str, ...], float]:
     grand = sum(values.values()) / len(values)
@@ -151,8 +152,6 @@ def _reliability_summary(
     model_var = max(0.0, variances[("model",)])
     sample_sizes = {
         "scenario": len(levels["scenario"]),
-        "judge": len(levels["judge"]),
-        "dimension": len(levels["dimension"]),
     }
 
     relative_error = 0.0
@@ -175,8 +174,6 @@ def _reliability_summary(
         "dependability_coefficient": _ratio(model_var, model_var + absolute_error),
         "n_models": float(len(levels["model"])),
         "n_scenarios": float(len(levels["scenario"])),
-        "n_judges": float(len(levels["judge"])),
-        "n_dimensions": float(len(levels["dimension"])),
     }
 
 

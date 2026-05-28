@@ -346,12 +346,19 @@ def _match_findings_with_llm_judges(
             max_tokens=max_tokens,
         )
         payload = _parse_json_payload(_message_content(response))
+        judge_votes: dict[str, dict[str, Any]] = {}
         for item in _payload_matches(payload):
             gold_id = str(item.get("gold_id", ""))
             if gold_id in votes_by_gold:
                 vote = dict(item)
                 vote["judge"] = judge_id
-                votes_by_gold[gold_id].append(vote)
+                current = judge_votes.get(gold_id)
+                if current is None or (
+                    not bool(current.get("matched")) and bool(vote.get("matched"))
+                ):
+                    judge_votes[gold_id] = vote
+        for gold_id, vote in judge_votes.items():
+            votes_by_gold[gold_id].append(vote)
     return [
         _llm_match_row(
             run,

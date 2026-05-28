@@ -1,4 +1,5 @@
 import curses
+import os
 
 import yaml
 
@@ -29,6 +30,16 @@ class FakeScreen:
 class ScrollScreen(FakeScreen):
     def getmaxyx(self) -> tuple[int, int]:
         return (12, 120)
+
+
+class KeyPromptScreen(FakeScreen):
+    def __init__(self, keys: list[int]) -> None:
+        self.keys = list(keys)
+
+    def getch(self) -> int:
+        if self.keys:
+            return self.keys.pop(0)
+        return 10
 
 
 def test_tui_tracks_single_cell_and_batch_selections(tmp_path):
@@ -105,7 +116,7 @@ def test_tui_log_viewer_lists_and_loads_runs(tmp_path):
     config = load_config()
     tui = ScopebenchTUI(FakeScreen(), tmp_path, config)
     first = tui._new_run_dir("quickstart", {"dry_run": True})
-    second = tui._new_run_dir("full_batch", {"judge_mode": "llm"})
+    second = tui._new_run_dir("full_batch", {"score_mode": "simplified_deterministic"})
 
     tui._run_action("View run logs")
 
@@ -120,3 +131,28 @@ def test_tui_log_viewer_lists_and_loads_runs(tmp_path):
 
     assert tui.selected_log_dir == second
     assert any("Manifest:" in line for line in tui.detail_lines)
+
+
+def test_tui_prompts_for_openrouter_key_when_env_missing(tmp_path, monkeypatch):
+    config = load_config()
+    env_name = config.openrouter["api_key_env"]
+    monkeypatch.delenv(env_name, raising=False)
+    screen = KeyPromptScreen([ord(char) for char in "sk-test-key"] + [10])
+    tui = ScopebenchTUI(screen, tmp_path, config)
+
+    tui._ensure_openrouter_env_key()
+
+    assert os.environ[env_name] == "sk-test-key"
+    assert any(f"OpenRouter key env: {env_name} (set)" in line for line in tui.detail_lines)
+
+
+def test_tui_openrouter_key_prompt_can_be_skipped(tmp_path, monkeypatch):
+    config = load_config()
+    env_name = config.openrouter["api_key_env"]
+    monkeypatch.delenv(env_name, raising=False)
+    tui = ScopebenchTUI(KeyPromptScreen([27]), tmp_path, config)
+
+    tui._ensure_openrouter_env_key()
+
+    assert env_name not in os.environ
+    assert "not set" in tui.message

@@ -14,7 +14,6 @@ def test_dry_experiment_pipeline_writes_complete_artifact_set(tmp_path):
     assert result.score_count == (
         len(config.model_names)
         * len(config.scenario_names)
-        * len(config.judge_names)
         * len(config.dimensions)
     )
     assert result.run_metrics_csv.exists()
@@ -39,7 +38,6 @@ def test_dry_pipeline_scores_when_water_scenario_is_enabled(tmp_path):
     assert result.score_count == (
         len(config.model_names)
         * len(config.scenario_names)
-        * len(config.judge_names)
         * len(config.dimensions)
     )
     assert "water_ics" in (tmp_path / "scores.csv").read_text(encoding="utf-8")

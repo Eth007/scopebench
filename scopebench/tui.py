@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import curses
 import json
+import os
 from pathlib import Path
 import textwrap
 import time
@@ -56,7 +57,7 @@ TESTING_MENU = (
     "Run quickstart pipeline",
     "Run dry experiment pipeline",
     "Run live smoke cell",
-    "Run live pipeline (deterministic judges)",
+    "Run live pipeline",
     "Generate demo transcripts",
     "Score workspace transcripts",
     "Run G-study analysis",
@@ -70,7 +71,7 @@ INSPECT_MENU = (
     "View run guide",
     "View latest summary",
     "View scenario catalog",
-    "View model and judge config",
+    "View model and matcher config",
     "View infrastructure status",
     "Back",
 )
@@ -119,11 +120,13 @@ class ScopebenchTUI:
         self.latest_scores_path: Path | None = None
         self.latest_artifact_dir = self._find_latest_artifact_dir()
         self.detail_lines: list[str] = []
+        self.prompted_openrouter_key = False
         self._set_detail_lines(self._workspace_lines())
 
     def run(self) -> None:
         curses.curs_set(0)
         self.screen.keypad(True)
+        self._ensure_openrouter_env_key()
         while True:
             self._draw()
             key = self.screen.getch()
@@ -317,8 +320,8 @@ class ScopebenchTUI:
                 self._run_dry_pipeline()
             elif label == "Run live smoke cell":
                 self._run_live_smoke()
-            elif label == "Run live pipeline (deterministic judges)":
-                self._run_live_pipeline_action("deterministic")
+            elif label == "Run live pipeline":
+                self._run_live_pipeline_action()
             elif label == "Generate demo transcripts":
                 self._generate_demo_transcripts()
             elif label == "Score workspace transcripts":
@@ -334,7 +337,7 @@ class ScopebenchTUI:
             elif label == "View scenario catalog":
                 self._set_detail_lines(self._scenario_lines())
                 self.message = "loaded scenario catalog"
-            elif label == "View model and judge config":
+            elif label == "View model and matcher config":
                 self._set_detail_lines(self._model_judge_lines())
                 self.message = "loaded OpenRouter model config"
             elif label == "View infrastructure status":
@@ -471,14 +474,13 @@ class ScopebenchTUI:
             self._set_detail_lines(self._post_run_summary(out_dir, include_llm=False))
 
     def _run_dry_pipeline(self) -> None:
-        out_dir = self._new_run_dir("dry_pipeline", {"dry_run": True, "judge_mode": "deterministic"})
+        out_dir = self._new_run_dir("dry_pipeline", {"dry_run": True, "score_mode": "simplified_deterministic"})
 
         def worker(progress: Callable[[str], None]) -> None:
             result = run_experiment_pipeline(
                 out_dir,
                 config=self.config,
                 dry_run=True,
-                judge_mode="deterministic",
                 progress=progress,
             )
             self.latest_artifact_dir = out_dir
@@ -507,7 +509,7 @@ class ScopebenchTUI:
         scenario_name = self.single_scenario
         out_dir = self._new_run_dir(
             "live_smoke",
-            {"model": model_name, "scenario": scenario_name, "judge_mode": "none"},
+            {"model": model_name, "scenario": scenario_name, "score_mode": "not_scored"},
         )
         transcript_dir = out_dir / "transcripts"
 
@@ -530,7 +532,7 @@ class ScopebenchTUI:
 
     def _run_one_selected_cell(self) -> None:
         if not self._confirm_live_action(
-            f"Run {self.single_model} on {self.single_scenario} with LLM judges? This uses OpenRouter credits."
+            f"Run {self.single_model} on {self.single_scenario}? This uses OpenRouter credits."
         ):
             return
         out_dir = self._new_run_dir(
@@ -538,7 +540,7 @@ class ScopebenchTUI:
             {
                 "models": [self.single_model],
                 "scenarios": [self.single_scenario],
-                "judge_mode": "llm",
+                "score_mode": "simplified_deterministic",
             },
         )
 
@@ -547,7 +549,6 @@ class ScopebenchTUI:
                 out_dir,
                 config=self.config,
                 dry_run=False,
-                judge_mode="llm",
                 models=(self.single_model,),
                 scenarios=(self.single_scenario,),
                 require_full_design=False,
@@ -556,7 +557,7 @@ class ScopebenchTUI:
             self.latest_artifact_dir = out_dir
             progress(
                 f"selected cell complete: {result.transcript_count} transcript, "
-                f"{result.score_count} LLM-judge scores"
+                f"{result.score_count} safety-dimension scores"
             )
 
         if self._observe(f"selected cell: {self.single_model} / {self.single_scenario}", worker, run_dir=out_dir):
@@ -576,7 +577,7 @@ class ScopebenchTUI:
             return
         out_dir = self._new_run_dir(
             "selected_batch",
-            {"models": list(models), "scenarios": list(scenarios), "judge_mode": "llm"},
+            {"models": list(models), "scenarios": list(scenarios), "score_mode": "simplified_deterministic"},
         )
 
         def worker(progress: Callable[[str], None]) -> None:
@@ -584,7 +585,6 @@ class ScopebenchTUI:
                 out_dir,
                 config=self.config,
                 dry_run=False,
-                judge_mode="llm",
                 models=models,
                 scenarios=scenarios,
                 require_full_design=False,
@@ -593,27 +593,23 @@ class ScopebenchTUI:
             self.latest_artifact_dir = out_dir
             progress(
                 f"selected batch complete: {result.transcript_count} transcripts, "
-                f"{result.score_count} LLM-judge scores"
+                f"{result.score_count} safety-dimension scores"
             )
 
         if self._observe("selected model-scenario batch", worker, run_dir=out_dir):
             self._set_detail_lines(self._post_run_summary(out_dir, include_llm=True))
 
-    def _run_live_pipeline_action(self, judge_mode: str) -> None:
-        prompt = (
-            "Run the full live batch plus LLM judges? This uses the most API credits."
-            if judge_mode == "llm"
-            else "Run the full live model-scenario batch? This may use API credits."
-        )
+    def _run_live_pipeline_action(self) -> None:
+        prompt = "Run the full live model-scenario batch? This may use API credits."
         if not self._confirm_live_action(prompt):
             return
-        suffix = "llm" if judge_mode == "llm" else "deterministic"
+        suffix = "simplified"
         out_dir = self._new_run_dir(
             f"live_pipeline_{suffix}",
             {
                 "models": list(self.config.model_names),
                 "scenarios": list(self.config.scenario_names),
-                "judge_mode": judge_mode,
+                "score_mode": "simplified_deterministic",
             },
         )
 
@@ -622,7 +618,6 @@ class ScopebenchTUI:
                 out_dir,
                 config=self.config,
                 dry_run=False,
-                judge_mode=judge_mode,
                 require_full_design=False,
                 progress=progress,
             )
@@ -632,12 +627,12 @@ class ScopebenchTUI:
                 f"{result.score_count} scores"
             )
 
-        if self._observe(f"live pipeline ({judge_mode})", worker, run_dir=out_dir):
-            self._set_detail_lines(self._post_run_summary(out_dir, include_llm=judge_mode == "llm"))
+        if self._observe("live pipeline", worker, run_dir=out_dir):
+            self._set_detail_lines(self._post_run_summary(out_dir, include_llm=False))
 
     def _run_final_live_experiment(self) -> None:
         if not self._confirm_live_action(
-            "Run the final live experiment with LLM judges? This uses OpenRouter credits."
+            "Run the final live experiment? This uses OpenRouter credits."
         ):
             return
         out_dir = self._new_run_dir(
@@ -645,7 +640,7 @@ class ScopebenchTUI:
             {
                 "models": list(self.config.model_names),
                 "scenarios": list(self.config.scenario_names),
-                "judge_mode": "llm",
+                "score_mode": "simplified_deterministic",
             },
         )
 
@@ -654,17 +649,16 @@ class ScopebenchTUI:
                 out_dir,
                 config=self.config,
                 dry_run=False,
-                judge_mode="llm",
                 progress=progress,
             )
             self.latest_artifact_dir = out_dir
             progress(
                 f"full batch complete: {result.transcript_count} transcripts, "
-                f"{result.score_count} LLM-judge scores"
+                f"{result.score_count} safety-dimension scores"
             )
 
-        if self._observe("full live batch with LLM judges", worker, run_dir=out_dir):
-            self._set_detail_lines(self._post_run_summary(out_dir, include_llm=True))
+        if self._observe("full live batch", worker, run_dir=out_dir):
+            self._set_detail_lines(self._post_run_summary(out_dir, include_llm=False))
 
     def _verify_final_experiment_artifacts(self) -> None:
         artifact_dir = self._latest_full_batch_dir()
@@ -797,8 +791,7 @@ class ScopebenchTUI:
             progress(f"analysis report: {result.report_md}")
             progress(f"model summary: {result.model_summary_csv}")
             progress(f"scenario summary: {result.scenario_summary_csv}")
-            progress(f"judge summary: {result.judge_summary_csv}")
-            progress(f"dimension summary: {result.dimension_summary_csv}")
+            progress(f"operational safety summary: {result.dimension_summary_csv}")
             progress(f"finding summary: {result.finding_summary_csv}")
             progress(f"finding evaluation: {result.finding_evaluation_md}")
             progress(f"qualitative examples: {result.qualitative_examples_md}")
@@ -863,6 +856,7 @@ class ScopebenchTUI:
         return True
 
     def _confirm_live_action(self, prompt: str) -> bool:
+        self._ensure_openrouter_env_key()
         self.message = f"{prompt} Press y to continue, any other key cancels."
         self._set_detail_lines(
             [
@@ -877,9 +871,54 @@ class ScopebenchTUI:
         self.message = "cancelled live action"
         return False
 
+    def _ensure_openrouter_env_key(self) -> None:
+        env_name = self.config.openrouter.get("api_key_env", "OPENROUTER_API_KEY")
+        if os.environ.get(env_name):
+            self.prompted_openrouter_key = True
+            return
+        if self.prompted_openrouter_key:
+            return
+        self.prompted_openrouter_key = True
+        key = self._prompt_secret(
+            f"{env_name} is not set. Enter OpenRouter API key, or press Esc/Enter to skip:"
+        )
+        if key:
+            os.environ[env_name] = key
+            self.message = f"{env_name} set for this TUI session"
+        else:
+            self.message = (
+                f"{env_name} not set; live OpenRouter actions will fail unless "
+                "openrouter.api_key is configured"
+            )
+        self._set_detail_lines(self._workspace_lines())
+
+    def _prompt_secret(self, prompt: str) -> str:
+        value: list[str] = []
+        while True:
+            self.screen.erase()
+            height, width = self.screen.getmaxyx()
+            lines = textwrap.wrap(prompt, width=max(20, width - 2)) or [prompt]
+            for index, line in enumerate(lines[: max(1, height - 4)]):
+                self._add(index, 0, line, curses.A_BOLD)
+            self._add(min(len(lines) + 1, max(0, height - 2)), 0, "*" * len(value))
+            self.screen.refresh()
+            key = self.screen.getch()
+            if key in (10, 13, curses.KEY_ENTER):
+                return "".join(value).strip()
+            if key == 27:
+                return ""
+            if key in (curses.KEY_BACKSPACE, 8, 127):
+                if value:
+                    value.pop()
+                continue
+            if 32 <= key <= 126:
+                value.append(chr(key))
+
     def _workspace_lines(self) -> list[str]:
         latest = self.latest_artifact_dir or "none yet"
         full_batch = self._latest_full_batch_dir()
+        env_name = self.config.openrouter.get("api_key_env", "OPENROUTER_API_KEY")
+        key_status = "set" if os.environ.get(env_name) else "not set"
         return [
             "Use Run batch for live experiments.",
             "Use View run logs to inspect timestamped runs, charts, and LLM analysis.",
@@ -888,6 +927,7 @@ class ScopebenchTUI:
             "Live batch cells run in parallel with isolated Kali and target stacks.",
             "",
             f"Config: {self.config.path}",
+            f"OpenRouter key env: {env_name} ({key_status})",
             f"Runs root: {self._runs_root()}",
             f"Latest artifact dir: {latest}",
             f"Latest full batch dir: {full_batch or 'none yet'}",
@@ -1088,7 +1128,7 @@ class ScopebenchTUI:
         for model in self.config.model_names:
             lines.append(f"- {model}")
         lines.append("")
-        lines.append("Judges:")
+        lines.append("Finding matchers:")
         for judge in self.config.judge_names:
             lines.append(f"- {judge}")
         lines.append("")

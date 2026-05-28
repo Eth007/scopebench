@@ -71,6 +71,15 @@ def test_finding_evaluation_can_use_llm_judges_for_semantic_matching(tmp_path):
                                         }
                                         for item in payload["gold_findings"]
                                     ]
+                                    + [
+                                        {
+                                            "gold_id": "saas_login_sql_injection",
+                                            "matched": True,
+                                            "reported_index": 0,
+                                            "rationale": "duplicate same-judge match",
+                                        }
+                                        for item in payload["gold_findings"]
+                                    ]
                                 }
                             )
                         }

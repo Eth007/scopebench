@@ -18,7 +18,6 @@ REQUIRED_SCENARIO_METRICS = {
     "saas_site": (
         "failed_login_attempts",
         "pii_records_exposed",
-        "unsafe_state_changes",
         "credential_misuse",
     ),
     "water_ics": (
@@ -180,7 +179,13 @@ def _verify_run_metrics(
         missing = required - set(row)
         if missing:
             errors.append(f"run_metrics.csv row {index} missing fields: {sorted(missing)}")
-        for key in ("availability", "pii_records_exposed", "unsafe_state_changes", "useful_steps"):
+        for key in (
+            "availability",
+            "pii_records_exposed",
+            "unsafe_state_changes",
+            "credential_misuse",
+            "useful_steps",
+        ):
             _require_numeric(row, key, f"run_metrics.csv row {index}", errors)
 
 
@@ -190,10 +195,9 @@ def _verify_scores(
     errors: list[str],
 ) -> None:
     expected = {
-        (model, scenario, judge, dimension)
+        (model, scenario, "deterministic", dimension)
         for model in config.model_names
         for scenario in config.scenario_names
-        for judge in config.judge_names
         for dimension in config.dimensions
     }
     observed: dict[tuple[str, str, str, str], int] = {}
@@ -230,13 +234,11 @@ def _verify_gstudy(
     if (
         len(config.model_names) < 2
         or len(config.scenario_names) < 2
-        or len(config.judge_names) < 2
-        or len(config.dimensions) < 2
     ):
         if rows:
             errors.append("gstudy.csv has rows even though the configured design cannot support G-study")
         return
-    facets = ("model", "scenario", "judge", "dimension")
+    facets = ("model", "scenario")
     expected_components = {
         ":".join(subset)
         for size in range(1, len(facets) + 1)
@@ -264,12 +266,8 @@ def _verify_summary(
         "dependability_coefficient",
         "n_models",
         "n_scenarios",
-        "n_judges",
-        "n_dimensions",
         "models",
         "scenarios",
-        "judges",
-        "dimensions",
     }
     missing = required - set(summary)
     if missing:
@@ -278,8 +276,6 @@ def _verify_summary(
     expected_lists = {
         "models": list(config.model_names),
         "scenarios": list(config.scenario_names),
-        "judges": list(config.judge_names),
-        "dimensions": list(config.dimensions),
     }
     for key, expected in expected_lists.items():
         if summary.get(key) != expected:
@@ -287,8 +283,6 @@ def _verify_summary(
     expected_counts = {
         "n_models": len(config.model_names),
         "n_scenarios": len(config.scenario_names),
-        "n_judges": len(config.judge_names),
-        "n_dimensions": len(config.dimensions),
     }
     for key, expected in expected_counts.items():
         if int(float(summary.get(key, -1))) != expected:
@@ -302,7 +296,6 @@ def _verify_analysis_outputs(analysis_dir: Path, errors: list[str]) -> None:
         "analysis_report.md",
         "model_summary.csv",
         "scenario_summary.csv",
-        "judge_summary.csv",
         "dimension_summary.csv",
         "finding_matches.csv",
         "finding_summary.csv",

@@ -9,7 +9,7 @@ This directory contains the runnable experiment harness for the plan in
 python -m scopebench preflight --live-scenarios
 ```
 
-Set an OpenRouter key for live model and LLM-judge calls:
+Set an OpenRouter key for live model calls and LLM-assisted finding matching:
 
 ```bash
 export OPENROUTER_API_KEY=...
@@ -46,18 +46,17 @@ start every selected model-scenario cell in parallel by default. Each cell uses
 a unique Docker Compose project with its own Kali agent, target services,
 internal network, and volumes. Set `experiment.parallel_cells` to cap
 concurrency when local CPU, memory, or API-rate limits require it.
-The configured `models` and `judges` are OpenRouter model IDs directly. Codex
-output is streamed during live runs; provider errors matching
+The configured `models` and finding matchers are OpenRouter model IDs directly.
+Codex output is streamed during live runs; provider errors matching
 `experiment.provider_error_abort_patterns` are logged immediately and, by
 default, abort the affected cell instead of waiting for the full time limit.
 
-Score with the three configured LLM judges:
+Score transcripts with the simplified deterministic operational-safety metric:
 
 ```bash
 python -m scopebench score \
-  --judge-mode llm \
   --transcripts outputs/experiments/transcripts/*.json \
-  --out outputs/experiments/llm_scores.csv
+  --out outputs/experiments/scores.csv
 ```
 
 Generate descriptive metrics and G-study outputs:
@@ -68,7 +67,7 @@ python -m scopebench metrics \
   --out outputs/experiments/run_metrics.csv
 
 python -m scopebench analyze \
-  --scores outputs/experiments/llm_scores.csv \
+  --scores outputs/experiments/scores.csv \
   --out outputs/experiments/gstudy.csv \
   --summary-out outputs/experiments/summary.json
 
@@ -94,15 +93,13 @@ The verifier checks that:
 - transcripts include model messages, observations, rules of engagement,
   availability checks, and scenario-specific objective metrics
 - run metrics and score rows cover the configured design
-- score rows form the full model-scenario-judge-dimension matrix
+- score rows cover the full model-scenario matrix
 - G-study components and summary counts match the configured facets
 - descriptive analysis tables and qualitative examples exist for the manuscript
 
-`run-pipeline` combines these steps. Use deterministic scoring for local
-smoke-tests and LLM judge scoring for the final measurement run:
+`run-pipeline` combines these steps:
 
 ```bash
 python -m scopebench run-pipeline \
-  --judge-mode llm \
   --out-dir outputs/experiments
 ```

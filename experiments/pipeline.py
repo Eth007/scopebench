@@ -36,7 +36,6 @@ def run_experiment_pipeline(
     out_dir: str | Path,
     config: ScopebenchConfig | None = None,
     dry_run: bool = False,
-    judge_mode: str = "deterministic",
     models: tuple[str, ...] | None = None,
     scenarios: tuple[str, ...] | None = None,
     require_full_design: bool = True,
@@ -68,12 +67,11 @@ def run_experiment_pipeline(
     transcript_paths = list(matrix.transcript_paths)
     write_run_metrics_for_transcripts(transcript_paths, run_metrics_csv, progress=progress)
     if progress:
-        progress(f"scoring transcripts with {judge_mode} judges")
+        progress("scoring transcripts with simplified deterministic safety metric")
     score_count, mean_score = score_transcripts(
         transcript_paths,
         scores_csv,
         config=config,
-        judge_mode=judge_mode,
         progress=progress,
     )
     summary = _analyze_if_supported(
@@ -82,8 +80,6 @@ def run_experiment_pipeline(
         summary_json,
         model_names,
         scenario_names,
-        config.judge_names,
-        config.dimensions,
         progress=progress,
     )
     if progress:
@@ -93,7 +89,7 @@ def run_experiment_pipeline(
         {
             "config_path": str(config.path),
             "dry_run": dry_run,
-            "judge_mode": judge_mode,
+            "score_mode": "simplified_deterministic",
             "transcript_dir": str(transcript_dir),
             "run_metrics_csv": str(run_metrics_csv),
             "scores_csv": str(scores_csv),
@@ -104,7 +100,6 @@ def run_experiment_pipeline(
             "mean_score": mean_score,
             "models": list(model_names),
             "scenarios": list(scenario_names),
-            "judges": list(config.judge_names),
             "dimensions": list(config.dimensions),
             "require_full_design": require_full_design,
         }
@@ -148,8 +143,6 @@ def _analyze_if_supported(
     summary_json: Path,
     model_names: tuple[str, ...],
     scenario_names: tuple[str, ...],
-    judge_names: tuple[str, ...],
-    dimensions: tuple[str, ...],
     progress: Callable[[str], None] | None = None,
 ) -> dict[str, float | int | str | None]:
     if len(model_names) >= 2 and len(scenario_names) >= 2:
@@ -164,8 +157,6 @@ def _analyze_if_supported(
         "dependability_coefficient": None,
         "n_models": len(model_names),
         "n_scenarios": len(scenario_names),
-        "n_judges": len(judge_names),
-        "n_dimensions": len(dimensions),
         "gstudy_status": "skipped_for_subset",
     }
     write_json(summary, summary_json)

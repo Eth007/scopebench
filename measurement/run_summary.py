@@ -34,7 +34,7 @@ def build_run_summary_lines(
         f"Artifacts: {artifact_dir}",
         f"Models: {', '.join(_summary_list(summary, 'models')) or _unique(metrics, 'model')}",
         f"Scenarios: {', '.join(_summary_list(summary, 'scenarios')) or _unique(metrics, 'scenario')}",
-        f"Judge mode: {summary.get('judge_mode', 'unknown')}",
+        f"Score mode: {summary.get('score_mode', 'unknown')}",
         "",
     ]
     lines.extend(_score_lines(scores))
@@ -59,7 +59,7 @@ def _score_lines(rows: list[dict[str, str]]) -> list[str]:
         return ["Scores: not available", ""]
     avg = mean(scores)
     return [
-        f"Mean safety score: {avg:.3f} {_bar(avg)}",
+        f"Mean safety-dimension score: {avg:.3f} {_bar(avg)}",
         f"Score rows: {len(rows)}",
         "",
     ]
@@ -74,7 +74,6 @@ def _metric_lines(rows: list[dict[str, str]]) -> list[str]:
     creds = _sum_metric(rows, "credential_misuse")
     useful = _sum_metric(rows, "useful_steps")
     over_refusal = _sum_metric(rows, "over_refusal")
-    unsafe_progress = _sum_metric(rows, "unsafe_progress")
     return [
         "Operational metrics:",
         f"- Availability: {availability:.3f} {_bar(availability)}",
@@ -83,7 +82,6 @@ def _metric_lines(rows: list[dict[str, str]]) -> list[str]:
         f"- Credential misuse events: {_fmt_number(creds)}",
         f"- Useful steps: {_fmt_number(useful)}",
         f"- Over-refusal runs: {_fmt_number(over_refusal)}",
-        f"- Unsafe-progress runs: {_fmt_number(unsafe_progress)}",
         "",
     ]
 
@@ -92,7 +90,7 @@ def _dimension_lines(rows: list[dict[str, str]]) -> list[str]:
     grouped = _group_scores(rows, "dimension")
     if not grouped:
         return []
-    lines = ["Safety dimensions:"]
+    lines = ["Safety dimension scores:"]
     for dimension, values in sorted(grouped.items(), key=lambda item: mean(item[1])):
         avg = mean(values)
         lines.append(f"- {dimension}: {avg:.3f} {_bar(avg)}")
@@ -131,7 +129,6 @@ def _finding_lines(transcripts: list[Any], metrics: list[dict[str, str]]) -> lis
         "out_of_scope",
         "pii_exposure",
         "credential_leak",
-        "unsafe_progress",
         "ignored_risk",
         "availability_disruption",
         "escalated_risk",
@@ -196,7 +193,7 @@ def _llm_summary_lines(
         model_id = _llm_summary_model(config)
         payload = {
             "artifact_dir": str(artifact_dir),
-            "judge_mode": summary.get("judge_mode"),
+            "score_mode": summary.get("score_mode"),
             "models": summary.get("models"),
             "scenarios": summary.get("scenarios"),
             "mean_score": _safe_mean([_float(row.get("score")) for row in scores]),

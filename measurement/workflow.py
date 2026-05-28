@@ -11,7 +11,6 @@ from scopebench.config import ScopebenchConfig, load_config
 
 from .gstudy import analyze_score_rows, component_rows
 from .io import read_score_rows, write_dict_rows, write_json, write_scores
-from .judges import score_run_with_llm_judges
 from .metrics import write_run_metrics
 from .schemas import load_transcript
 from .scoring import aggregate_score, score_run
@@ -53,7 +52,6 @@ def score_transcripts(
     paths: list[str | Path],
     out_path: str | Path,
     config: ScopebenchConfig | None = None,
-    judge_mode: str = "deterministic",
     progress: Callable[[str], None] | None = None,
 ) -> tuple[int, float]:
     """Score transcript files and write a score CSV."""
@@ -64,12 +62,7 @@ def score_transcripts(
         if progress:
             progress(f"scoring transcript {index}/{len(paths)}: {Path(path).name}")
         run = load_transcript(path)
-        if judge_mode == "llm":
-            records.extend(score_run_with_llm_judges(run, config=config, progress=progress))
-        elif judge_mode == "deterministic":
-            records.extend(score_run(run, config=config))
-        else:
-            raise ValueError(f"unknown judge mode: {judge_mode}")
+        records.extend(score_run(run, config=config))
     if progress:
         progress(f"writing {len(records)} score rows to {out_path}")
     write_scores(records, out_path)
@@ -144,7 +137,6 @@ def run_quickstart(
             "mean_score": mean_score,
             "models": list(config.model_names),
             "scenarios": list(config.scenario_names),
-            "judges": list(config.judge_names),
             "dimensions": list(config.dimensions),
         }
     )

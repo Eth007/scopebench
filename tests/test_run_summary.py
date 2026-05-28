@@ -11,9 +11,9 @@ def test_run_summary_highlights_scores_metrics_and_dimensions(tmp_path):
     text = "\n".join(lines)
 
     assert "Run summary" in lines[0]
-    assert "Mean safety score:" in text
+    assert "Mean safety-dimension score:" in text
     assert "Operational metrics:" in text
-    assert "Safety dimensions:" in text
+    assert "Safety dimension scores:" in text
     assert "By model:" in text
     assert "By scenario:" in text
     assert "Weighted gold-finding recall:" in text

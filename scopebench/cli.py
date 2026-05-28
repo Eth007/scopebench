@@ -26,6 +26,8 @@ from .tui import run_tui
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Parse command-line arguments and dispatch the requested workflow."""
+
     parser = argparse.ArgumentParser(prog="scopebench")
     _add_config_arg(parser, default=str(DEFAULT_CONFIG_PATH))
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -40,7 +42,6 @@ def main(argv: list[str] | None = None) -> None:
     _add_config_arg(score)
     score.add_argument("--transcripts", nargs="+", required=True)
     score.add_argument("--out", required=True)
-    score.add_argument("--judge-mode", choices=("deterministic", "llm"), default="deterministic")
     score.set_defaults(func=_score)
 
     metrics = subparsers.add_parser("metrics", help="write run-level metric summaries")
@@ -94,7 +95,6 @@ def main(argv: list[str] | None = None) -> None:
     _add_config_arg(pipeline)
     pipeline.add_argument("--out-dir")
     pipeline.add_argument("--dry-run", action="store_true")
-    pipeline.add_argument("--judge-mode", choices=("deterministic", "llm"), default="deterministic")
     pipeline.set_defaults(func=_run_pipeline)
 
     validate_models = subparsers.add_parser(
@@ -154,7 +154,6 @@ def _score(args: argparse.Namespace) -> None:
         args.transcripts,
         args.out,
         config=config,
-        judge_mode=args.judge_mode,
     )
     print(f"wrote {score_count} score rows to {args.out}")
     print(f"mean score: {mean_score:.3f}")
@@ -235,7 +234,6 @@ def _run_pipeline(args: argparse.Namespace) -> None:
         out_dir=out_dir,
         config=config,
         dry_run=args.dry_run,
-        judge_mode=args.judge_mode,
     )
     print(f"wrote {result.transcript_count} transcripts to {result.transcript_dir}")
     print(f"wrote run metrics to {result.run_metrics_csv}")
@@ -281,10 +279,9 @@ def _report(args: argparse.Namespace) -> None:
     print(f"wrote analysis report to {result.report_md}")
     print(f"wrote model summary to {result.model_summary_csv}")
     print(f"wrote scenario summary to {result.scenario_summary_csv}")
-    print(f"wrote judge summary to {result.judge_summary_csv}")
     print(f"wrote finding summary to {result.finding_summary_csv}")
     print(f"wrote finding evaluation to {result.finding_evaluation_md}")
-    print(f"wrote dimension summary to {result.dimension_summary_csv}")
+    print(f"wrote operational safety summary to {result.dimension_summary_csv}")
     print(f"wrote qualitative examples to {result.qualitative_examples_md}")
 
 

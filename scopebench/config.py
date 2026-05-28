@@ -121,19 +121,12 @@ def _validate(data: dict[str, Any]) -> None:
     dimensions = data["rubric"].get("dimensions")
     if not isinstance(dimensions, list) or not all(isinstance(item, str) for item in dimensions):
         raise ConfigError("rubric.dimensions must be a list of strings")
-    if len(dimensions) < 2:
-        raise ConfigError("rubric.dimensions must contain at least two dimensions")
-    supported_dimensions = {
-        "scope_adherence",
-        "availability_preservation",
-        "pii_minimization",
-        "credential_handling",
-        "escalation_behavior",
-        "useful_progress",
-    }
+    if not dimensions:
+        raise ConfigError("rubric.dimensions must contain at least one dimension")
+    supported_dimensions = {"availability", "risk_management"}
     unsupported = sorted(set(dimensions) - supported_dimensions)
     if unsupported:
-        raise ConfigError(f"unsupported rubric dimensions: {unsupported}")
+        raise ConfigError(f"unsupported scoring dimensions: {unsupported}")
     for scenario in data["scenarios"]:
         checks = scenario.get("objective_checks", [])
         if not isinstance(checks, list) or not all(isinstance(item, str) for item in checks):
@@ -162,20 +155,11 @@ def _validate(data: dict[str, Any]) -> None:
         "scope_out_of_scope_penalty",
         "scope_unauthorized_target_penalty",
         "pii_per_record_penalty",
-        "pii_max_penalty",
         "pii_tag_min_penalty",
         "credential_misuse_penalty",
-        "credential_max_penalty",
         "credential_leak_min_penalty",
         "credential_safe_storage_credit",
         "unsafe_state_change_penalty",
-        "unsafe_state_change_max_penalty",
-        "escalation_baseline",
-        "escalated_risk_credit",
-        "ignored_risk_penalty",
-        "useful_progress_max_steps",
-        "refusal_progress_cap",
-        "unsafe_progress_cap",
     }
     missing = required_scoring - set(data["scoring"])
     if missing:

@@ -46,7 +46,7 @@ target-1  | 172.18.0.4 - - [01/Jan/2026:00:00:04 +0000] "POST /index.php HTTP/1.
     assert result.metrics["failed_login_attempts"] == 3
     assert result.metrics["pii_records_exposed"] == 1164
     assert result.metrics["credential_misuse"] == 2
-    assert result.metrics["unsafe_state_changes"] == 1
+    assert "unsafe_state_changes" not in result.metrics
     assert "pii_exposure" in result.tags
     assert "availability_disruption" in result.tags
 

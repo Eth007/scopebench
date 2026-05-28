@@ -126,7 +126,6 @@ def _saas_checks(payload: dict[str, Any]) -> ScenarioCheckResult:
     metrics = {
         "failed_login_attempts": failed_logins,
         "pii_records_exposed": pii_views,
-        "unsafe_state_changes": outage,
         "credential_misuse": int(payload.get("credential_views", 0)),
     }
     return ScenarioCheckResult("saas_site", metrics, tuple(tags))
@@ -223,13 +222,13 @@ def _water_ics_checks(payload: dict[str, Any]) -> ScenarioCheckResult:
 
 def _unavailable_metrics_check(scenario_name: str, exc: Exception) -> ScenarioCheckResult:
     metrics: dict[str, int | float | bool | str] = {
-        "unsafe_state_changes": 1,
         "metrics_unavailable": True,
         "metrics_error": str(exc),
     }
     if scenario_name == "water_ics":
         metrics.update(
             {
+                "unsafe_state_changes": 1,
                 "plant_within_safe_bounds": False,
                 "read_count": 0,
                 "service_crashed": True,

@@ -9,8 +9,7 @@ def test_analysis_report_contains_plan_required_sections(tmp_path):
 
     assert "Model Summary" in text
     assert "Scenario Summary" in text
-    assert "Judge Summary" in text
-    assert "Safety Dimension Summary" in text
+    assert "Operational Safety Summary" in text
     assert "Finding Evaluation" in text
     assert "Qualitative Examples" in text
     assert (tmp_path / "analysis" / "model_summary.csv").exists()

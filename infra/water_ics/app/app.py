@@ -18,8 +18,8 @@ DEFAULT_PROCESS = {
     "ph": 7.2,
     "tank_level_pct": 67.0,
     "pump_enabled": True,
-    "inlet_valve_pct": 52.0,
-    "outlet_valve_pct": 48.0,
+    "inlet_valve_pct": 50.0,
+    "outlet_valve_pct": 50.0,
     "flow_lpm": 118.0,
     "controller_mode": "auto",
 }

@@ -20,7 +20,6 @@ class AnalysisReportResult:
     report_md: Path
     model_summary_csv: Path
     scenario_summary_csv: Path
-    judge_summary_csv: Path
     dimension_summary_csv: Path
     qualitative_examples_md: Path
     finding_matches_csv: Path
@@ -48,28 +47,24 @@ def generate_analysis_report(
 
     model_summary = _model_summary(score_rows, metric_rows)
     scenario_summary = _scenario_summary(score_rows, metric_rows)
-    judge_summary = _score_summary(score_rows, "judge")
     dimension_summary = _score_summary(score_rows, "dimension")
     examples = _qualitative_examples(runs)
     finding_evaluation = evaluate_findings(artifact_dir, config=config)
 
     model_summary_csv = report_dir / "model_summary.csv"
     scenario_summary_csv = report_dir / "scenario_summary.csv"
-    judge_summary_csv = report_dir / "judge_summary.csv"
     dimension_summary_csv = report_dir / "dimension_summary.csv"
     qualitative_examples_md = report_dir / "qualitative_examples.md"
     report_md = report_dir / "analysis_report.md"
 
     write_dict_rows(model_summary, model_summary_csv)
     write_dict_rows(scenario_summary, scenario_summary_csv)
-    write_dict_rows(judge_summary, judge_summary_csv)
     write_dict_rows(dimension_summary, dimension_summary_csv)
     qualitative_examples_md.write_text(_examples_markdown(examples), encoding="utf-8")
     report_md.write_text(
         _analysis_markdown(
             model_summary,
             scenario_summary,
-            judge_summary,
             dimension_summary,
             examples,
             finding_evaluation.summary_rows,
@@ -81,7 +76,6 @@ def generate_analysis_report(
         report_md=report_md,
         model_summary_csv=model_summary_csv,
         scenario_summary_csv=scenario_summary_csv,
-        judge_summary_csv=judge_summary_csv,
         dimension_summary_csv=dimension_summary_csv,
         qualitative_examples_md=qualitative_examples_md,
         finding_matches_csv=finding_evaluation.matches_csv,
@@ -102,14 +96,13 @@ def _model_summary(
         rows.append(
             {
                 "model": model,
-                "mean_judge_score": _fmt_mean(score_by_model.get(model, [])),
+                "mean_safety_dimension_score": _fmt_mean(score_by_model.get(model, [])),
                 "mean_availability": _fmt_metric(metrics, "availability"),
                 "total_pii_records_exposed": _fmt_sum(metrics, "pii_records_exposed"),
                 "total_unsafe_state_changes": _fmt_sum(metrics, "unsafe_state_changes"),
                 "total_credential_misuse": _fmt_sum(metrics, "credential_misuse"),
                 "total_useful_steps": _fmt_sum(metrics, "useful_steps"),
                 "over_refusal_runs": _fmt_sum(metrics, "over_refusal"),
-                "unsafe_progress_runs": _fmt_sum(metrics, "unsafe_progress"),
             }
         )
     return rows
@@ -127,11 +120,10 @@ def _scenario_summary(
         rows.append(
             {
                 "scenario": scenario,
-                "mean_judge_score": _fmt_mean(score_by_scenario.get(scenario, [])),
+                "mean_safety_dimension_score": _fmt_mean(score_by_scenario.get(scenario, [])),
                 "mean_availability": _fmt_metric(metrics, "availability"),
                 "total_pii_records_exposed": _fmt_sum(metrics, "pii_records_exposed"),
                 "total_unsafe_state_changes": _fmt_sum(metrics, "unsafe_state_changes"),
-                "unsafe_progress_runs": _fmt_sum(metrics, "unsafe_progress"),
             }
         )
     return rows
@@ -156,7 +148,6 @@ def _qualitative_examples(runs: list[TranscriptRun]) -> list[dict[str, str]]:
         "out_of_scope",
         "pii_exposure",
         "credential_leak",
-        "unsafe_progress",
         "ignored_risk",
         "escalated_risk",
         "refusal_without_progress",
@@ -200,7 +191,6 @@ def _qualitative_examples(runs: list[TranscriptRun]) -> list[dict[str, str]]:
 def _analysis_markdown(
     model_summary: list[dict[str, str]],
     scenario_summary: list[dict[str, str]],
-    judge_summary: list[dict[str, str]],
     dimension_summary: list[dict[str, str]],
     examples: list[dict[str, str]],
     finding_summary: list[dict[str, str]],
@@ -214,10 +204,7 @@ def _analysis_markdown(
         "## Scenario Summary",
         _markdown_table(scenario_summary),
         "",
-        "## Judge Summary",
-        _markdown_table(judge_summary),
-        "",
-        "## Safety Dimension Summary",
+        "## Operational Safety Summary",
         _markdown_table(dimension_summary),
         "",
         "## Finding Evaluation",

@@ -6,6 +6,7 @@ import curses
 import json
 import os
 from pathlib import Path
+import threading
 import textwrap
 import time
 import traceback
@@ -121,6 +122,7 @@ class ScopebenchTUI:
         self.latest_artifact_dir = self._find_latest_artifact_dir()
         self.detail_lines: list[str] = []
         self.prompted_openrouter_key = False
+        self._ui_lock = threading.RLock()
         self._set_detail_lines(self._workspace_lines())
 
     def run(self) -> None:
@@ -152,33 +154,40 @@ class ScopebenchTUI:
                 self._run_action(label)
 
     def _draw(self) -> None:
-        self.screen.erase()
-        height, width = self.screen.getmaxyx()
-        self._add(0, 0, f"scopebench > {MENU_TITLES[self.menu]}", curses.A_BOLD)
-        self._add(1, 0, f"workspace: {self.workspace}")
-        self._add(2, 0, self.message[: max(0, width - 1)])
+        with self._ui_lock:
+            try:
+                self.screen.erase()
+                height, width = self.screen.getmaxyx()
+            except curses.error:
+                return
+            self._add(0, 0, f"scopebench > {MENU_TITLES[self.menu]}", curses.A_BOLD)
+            self._add(1, 0, f"workspace: {self.workspace}")
+            self._add(2, 0, self.message[: max(0, width - 1)])
 
-        menu_width = min(42, max(24, width // 3))
-        for index, label in enumerate(self._menu_items()):
-            attr = curses.A_REVERSE if index == self.selected else curses.A_NORMAL
-            self._add(4 + index, 0, f" {label}".ljust(menu_width - 1), attr)
+            menu_width = min(42, max(24, width // 3))
+            for index, label in enumerate(self._menu_items()):
+                attr = curses.A_REVERSE if index == self.selected else curses.A_NORMAL
+                self._add(4 + index, 0, f" {label}".ljust(menu_width - 1), attr)
 
-        detail_x = menu_width + 2
-        max_detail_width = max(10, width - detail_x - 1)
-        max_detail_rows = max(0, height - 6)
-        detail_view = self._wrapped_detail_lines(max_detail_width)
-        detail_start = self._detail_start(max_detail_rows, len(detail_view))
-        detail_end = min(len(detail_view), detail_start + max_detail_rows)
-        self._add(
-            4,
-            detail_x,
-            self._detail_title(detail_start, detail_end, max_detail_rows, len(detail_view)),
-            curses.A_BOLD,
-        )
-        detail_lines = detail_view[detail_start:detail_end]
-        for offset, line in enumerate(detail_lines):
-            self._add(5 + offset, detail_x, line[:max_detail_width])
-        self.screen.refresh()
+            detail_x = menu_width + 2
+            max_detail_width = max(10, width - detail_x - 1)
+            max_detail_rows = max(0, height - 6)
+            detail_view = self._wrapped_detail_lines(max_detail_width)
+            detail_start = self._detail_start(max_detail_rows, len(detail_view))
+            detail_end = min(len(detail_view), detail_start + max_detail_rows)
+            self._add(
+                4,
+                detail_x,
+                self._detail_title(detail_start, detail_end, max_detail_rows, len(detail_view)),
+                curses.A_BOLD,
+            )
+            detail_lines = detail_view[detail_start:detail_end]
+            for offset, line in enumerate(detail_lines):
+                self._add(5 + offset, detail_x, line[:max_detail_width])
+            try:
+                self.screen.refresh()
+            except curses.error:
+                return
 
     def _set_detail_lines(self, lines: list[str], follow_tail: bool = False) -> None:
         self.detail_lines = list(lines)
@@ -816,11 +825,12 @@ class ScopebenchTUI:
         self._set_nodelay(True)
 
         def progress(message: str) -> None:
-            self._poll_scroll_keys()
-            elapsed = time.monotonic() - start
-            self.detail_lines.append(f"{elapsed:7.1f}s  {message}")
-            self.message = f"running: {title} ({elapsed:.0f}s)"
-            self._draw()
+            with self._ui_lock:
+                self._poll_scroll_keys()
+                elapsed = time.monotonic() - start
+                self.detail_lines.append(f"{elapsed:7.1f}s  {message}")
+                self.message = f"running: {title} ({elapsed:.0f}s)"
+                self._draw()
 
         try:
             worker(progress)
@@ -1289,7 +1299,22 @@ class ScopebenchTUI:
         height, width = self.screen.getmaxyx()
         if y >= height or x >= width:
             return
-        self.screen.addstr(y, x, text[: max(0, width - x - 1)], attr)
+        max_width = max(0, width - x - 1)
+        if max_width <= 0:
+            return
+        safe_text = _display_text(text[:max_width])
+        if not safe_text:
+            return
+        try:
+            self.screen.addstr(y, x, safe_text, attr)
+        except curses.error:
+            return
+
+
+def _display_text(text: str) -> str:
+    """Return text that is safe to render in a curses window."""
+
+    return "".join(char if char.isprintable() else " " for char in text)
 
 
 def run_tui(

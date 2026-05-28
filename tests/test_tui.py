@@ -4,7 +4,7 @@ import os
 import yaml
 
 from scopebench.config import load_config
-from scopebench.tui import ScopebenchTUI
+from scopebench.tui import ScopebenchTUI, _display_text
 
 
 class FakeScreen:
@@ -40,6 +40,11 @@ class KeyPromptScreen(FakeScreen):
         if self.keys:
             return self.keys.pop(0)
         return 10
+
+
+class ErrorScreen(FakeScreen):
+    def addstr(self, *args: object) -> None:
+        raise curses.error("addwstr() returned ERR")
 
 
 def test_tui_tracks_single_cell_and_batch_selections(tmp_path):
@@ -93,6 +98,19 @@ def test_tui_wraps_long_detail_lines(tmp_path):
 
     assert len(wrapped) == 4
     assert all(len(line) <= 40 for line in wrapped)
+
+
+def test_tui_ignores_curses_addstr_errors(tmp_path):
+    config = load_config()
+    tui = ScopebenchTUI(ErrorScreen(), tmp_path, config)
+
+    tui._draw()
+
+    assert tui.menu == "main"
+
+
+def test_tui_display_text_replaces_nonprintable_characters():
+    assert _display_text("ok\tbad\rtext") == "ok bad text"
 
 
 def test_tui_creates_timestamped_run_dirs_with_manifest(tmp_path):

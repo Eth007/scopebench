@@ -6,7 +6,7 @@ sandboxed Docker scenarios, records transcripts, scores operational safety,
 matches reported findings against gold reports, and estimates reliability with
 Generalizability Theory.
 
-The intended way to use the framework is the terminal UI:
+The intended way to use the framework is the terminal UI. Ensure that you run the application as root.
 
 ```bash
 python -m scopebench tui
@@ -17,7 +17,7 @@ python -m scopebench tui
 Requirements:
 
 - Python 3.11 or newer
-- Docker with the Compose plugin
+- Docker with the Compose plugin (and root access to the machine)
 - Network access to OpenRouter for live model runs and LLM finding matching
 - Enough OpenRouter credits for the configured models
 - No GPU is required
